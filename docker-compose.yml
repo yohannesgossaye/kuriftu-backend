@@ -1,0 +1,64 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: kuriftu
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./pg_hba.conf:/docker-entrypoint-initdb.d/pg_hba.conf
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d kuriftu"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - kuriftu-net
+
+  migrate:
+    image: migrate/migrate
+    volumes:
+      - ./migrations:/migrations
+    command: -path=/migrations -database=postgres://user:password@db:5432/kuriftu?sslmode=disable up
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: on-failure
+    networks:
+      - kuriftu-net
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - DB_URL=postgres://user:password@db:5432/kuriftu?sslmode=disable
+      - JWT_SECRET=1UMBt1BJ0-iGwpXRT8uzwgpKJEwSZW0yO5T5jT7IlD0=
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    networks:
+      - kuriftu-net
+
+  swagger:
+    image: swaggerapi/swagger-ui
+    ports:
+      - "8081:8080"
+    environment:
+      - API_URL=http://localhost:8080/swagger/swagger.yaml
+    networks:
+      - kuriftu-net
+
+volumes:
+  postgres_data:
+
+networks:
+  kuriftu-net:
+    driver: bridge
