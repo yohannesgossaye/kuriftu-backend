@@ -9,6 +9,7 @@ import (
 	"github.com/yohannesgossaye/kuriftu-backend/internal/application/auth"
 )
 
+// RegisterHandler godoc
 // @Summary Register a new user
 // @Description Creates a new user account with personal information
 // @Tags Auth
@@ -31,7 +32,7 @@ func RegisterHandler(svc *auth.Service, log *zerolog.Logger) http.HandlerFunc {
 		user, err := svc.Register(req.FirstName, req.LastName, req.Email, req.Password, req.Phone, req.UserType)
 		if err != nil {
 			log.Error().Err(err).Msg("Registration failed")
-			http.Error(w, `{"error": "Registration failed"}`, http.StatusInternalServerError)
+			http.Error(w, `{"error": "Registration failed: `+err.Error()+`"}`, http.StatusBadRequest)
 			return
 		}
 
@@ -48,7 +49,50 @@ func RegisterHandler(svc *auth.Service, log *zerolog.Logger) http.HandlerFunc {
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(resp)
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
+			log.Error().Err(err).Msg("Failed to encode response")
+			http.Error(w, `{"error": "Internal server error"}`, http.StatusInternalServerError)
+			return
+		}
+	}
+}
+
+// LoginHandler godoc
+// @Summary Login a user
+// @Description Authenticates a user and returns a JWT token
+// @Tags Auth
+// @Accept json
+// @Produce json
+// @Param request body LoginRequest true "Login credentials"
+// @Success 200 {object} LoginResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /auth/login [post]
+func LoginHandler(svc *auth.Service, log *zerolog.Logger) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req LoginRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			log.Error().Err(err).Msg("Invalid request body")
+			http.Error(w, `{"error": "Invalid request body"}`, http.StatusBadRequest)
+			return
+		}
+
+		token, err := svc.Login(req.Email, req.Password)
+		if err != nil {
+			log.Error().Err(err).Msg("Login failed")
+			http.Error(w, `{"error": "Login failed: `+err.Error()+`"}`, http.StatusUnauthorized)
+			return
+		}
+
+		resp := LoginResponse{Token: token}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
+			log.Error().Err(err).Msg("Failed to encode response")
+			http.Error(w, `{"error": "Internal server error"}`, http.StatusInternalServerError)
+			return
+		}
 	}
 }
 
@@ -70,6 +114,15 @@ type RegisterResponse struct {
 	UserType  string `json:"user_type"`
 	CreatedAt string `json:"created_at"`
 	IsActive  bool   `json:"is_active"`
+}
+
+type LoginRequest struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
+type LoginResponse struct {
+	Token string `json:"token"`
 }
 
 type ErrorResponse struct {

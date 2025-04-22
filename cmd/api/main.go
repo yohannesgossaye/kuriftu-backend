@@ -18,6 +18,11 @@ import (
 // @description API for Kuriftu Loyalty Program
 // @host localhost:8080
 // @BasePath /
+// @schemes http
+// @securityDefinitions.apikey Bearer
+// @in header
+// @name Authorization
+// @description Type "Bearer" followed by a space and JWT token.
 func main() {
 	cfg, err := config.Load()
 	if err != nil {
@@ -34,12 +39,13 @@ func main() {
 
 	dbQueries := sqlc.New(dbPool)
 	authRepo := db_auth.NewRepository(dbQueries)
-	authSvc := app_auth.NewService(authRepo)
+	authSvc := app_auth.NewService(authRepo, cfg)
 
 	r := api.SetupRoutes(authSvc, logger)
 
-	log.Info().Msgf("Starting server on port %s", cfg.Port)
-	if err := http.ListenAndServe(":"+cfg.Port, r); err != nil {
+	addr := "0.0.0.0:" + cfg.Port
+	log.Info().Msgf("Starting server on %s", addr)
+	if err := http.ListenAndServe(addr, r); err != nil {
 		log.Fatal().Err(err).Msg("Server failed to start")
 	}
 }

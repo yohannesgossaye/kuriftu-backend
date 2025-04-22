@@ -65,3 +65,39 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (CreateU
 	)
 	return i, err
 }
+
+const getUserByEmail = `-- name: GetUserByEmail :one
+SELECT id, first_name, last_name, email, password_hash, phone, user_type, created_at, updated_at, last_login_at, is_active
+FROM users
+WHERE email = $1
+`
+
+func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error) {
+	row := q.db.QueryRow(ctx, getUserByEmail, email)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.FirstName,
+		&i.LastName,
+		&i.Email,
+		&i.PasswordHash,
+		&i.Phone,
+		&i.UserType,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.LastLoginAt,
+		&i.IsActive,
+	)
+	return i, err
+}
+
+const updateLastLoginAt = `-- name: UpdateLastLoginAt :exec
+UPDATE users
+SET last_login_at = CURRENT_TIMESTAMP
+WHERE id = $1
+`
+
+func (q *Queries) UpdateLastLoginAt(ctx context.Context, id int32) error {
+	_, err := q.db.Exec(ctx, updateLastLoginAt, id)
+	return err
+}

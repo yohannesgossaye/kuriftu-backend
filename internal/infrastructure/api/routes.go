@@ -28,7 +28,7 @@ func SetupRoutes(svc *auth.Service, log *zerolog.Logger) *chi.Mux {
 
 	// Serve Swagger JSON and UI
 	r.Get("/swagger/*", httpSwagger.Handler(
-		httpSwagger.URL("/swagger/swagger.yaml"), // Relative path
+		httpSwagger.URL("/swagger/swagger.yaml"),
 	))
 	r.Get("/swagger/swagger.yaml", func(w http.ResponseWriter, r *http.Request) {
 		log.Info().Msg("Serving swagger.yaml from ./docs/swagger.yaml")
@@ -36,6 +36,7 @@ func SetupRoutes(svc *auth.Service, log *zerolog.Logger) *chi.Mux {
 	})
 
 	r.Post("/auth/register", handlers.RegisterHandler(svc, log))
+	r.Post("/auth/login", handlers.LoginHandler(svc, log))
 
 	return r
 }
